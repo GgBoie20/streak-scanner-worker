@@ -1,0 +1,49 @@
+name: Streak 3-Cap Scanner
+
+on:
+  workflow_dispatch:
+    inputs:
+      trigger_source:
+        description: "Who triggered this scan (manual or telegram_render)"
+        required: false
+        default: "manual"
+      scanner_url_override:
+        description: "Optional override URL for Streak scanner"
+        required: false
+        default: ""
+  schedule:
+    # Runs every 15 minutes during NSE market hours (Mon-Fri, 09:15 to 15:30 IST = 03:45 to 10:00 UTC)
+    - cron: "*/15 4-9 * * 1-5"
+
+jobs:
+  scrape-and-notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: python -m playwright install chromium --with-deps
+
+      - name: Run Streak 3-Cap Scraper
+        env:
+          STREAK_STORAGE_STATE_B64: ${{ secrets.STREAK_STORAGE_STATE_B64 }}
+          STREAK_SCANNER_URL: ${{ inputs.scanner_url_override || secrets.STREAK_SCANNER_URL }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          RENDER_WEBHOOK_URL: ${{ secrets.RENDER_WEBHOOK_URL }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TRIGGER_SOURCE: ${{ inputs.trigger_source || 'schedule' }}
+        run: python scraper.py
+        
